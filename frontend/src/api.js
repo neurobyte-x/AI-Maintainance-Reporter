@@ -38,12 +38,12 @@ export const authAPI = {
 };
 
 export const ticketsAPI = {
-  createTicket: (formData) => api.post('/tickets', formData, {
+  createTicket: (formData) => api.post('/tickets/', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
   }),
-  getAllTickets: () => api.get('/tickets'),
+  getAllTickets: () => api.get('/tickets/'),
   getTicket: (id) => api.get(`/tickets/${id}`),
   updateStatus: (id, status) => api.put(`/tickets/${id}/status?ticket_status=${status}`),
 };
