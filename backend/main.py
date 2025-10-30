@@ -293,7 +293,6 @@ def image_reasoning_tool(image_path: str) -> str:
 
 def reasoning_agent(state: AgentState) -> AgentState:
     """Agent that reasons about the maintenance issue"""
-    messages = state["messages"]
     image_path = state["image_path"]
     
     if image_path and Path(image_path).exists():

@@ -11,7 +11,7 @@ services:
         fromDatabase:
           name: ai-maintenance-db
           property: connectionString
-      - key: JWT_SECRET_KEY
+      - key: SECRET_KEY
         generateValue: true
-      - key: GEMINI_API_KEY
+      - key: GOOGLE_API_KEY
         sync: false
