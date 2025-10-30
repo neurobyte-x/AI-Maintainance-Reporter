@@ -452,27 +452,47 @@ async def get_current_user(user: dict = Depends(verify_token)):
 async def create_ticket(
     student_name: str = Form(...),
     location: str = Form(...),
-    issue_type: str = Form(...),
-    description: str = Form(...),
-    image: UploadFile = File(None),
+    image: UploadFile = File(...),
     user: dict = Depends(verify_token)
 ):
-    image_path = None
-    if image:
-        image_path = str(UPLOAD_DIR / f"{datetime.now().timestamp()}_{image.filename}")
-        with open(image_path, "wb") as buffer:
-            buffer.write(await image.read())
+    # Save uploaded image
+    image_path = str(UPLOAD_DIR / f"{datetime.now().timestamp()}_{image.filename}")
+    with open(image_path, "wb") as buffer:
+        buffer.write(await image.read())
     
-    # Run AI analysis
+    # Run AI analysis to extract issue_type and description
     initial_state = AgentState(
-        messages=[HumanMessage(content=f"Analyze maintenance issue: {description}")],
-        image_path=image_path or "",
+        messages=[HumanMessage(content=f"Analyze maintenance issue at {location}")],
+        image_path=image_path,
         reasoning="",
         priority="medium"
     )
     
     result = agent.invoke(initial_state)
     priority = result.get("priority", "medium")
+    reasoning = result.get("reasoning", "AI analysis unavailable")
+    
+    # Extract issue type from reasoning (simple extraction)
+    issue_type = "Maintenance"
+    reasoning_lower = reasoning.lower()
+    if any(word in reasoning_lower for word in ['electrical', 'electric', 'wire', 'outlet']):
+        issue_type = "Electrical"
+    elif any(word in reasoning_lower for word in ['plumbing', 'water', 'leak', 'pipe', 'drain']):
+        issue_type = "Plumbing"
+    elif any(word in reasoning_lower for word in ['hvac', 'cooling', 'heating', 'air conditioning', 'ventilation']):
+        issue_type = "HVAC"
+    elif any(word in reasoning_lower for word in ['structural', 'crack', 'wall', 'ceiling', 'floor']):
+        issue_type = "Structural"
+    elif any(word in reasoning_lower for word in ['furniture', 'chair', 'desk', 'table']):
+        issue_type = "Furniture"
+    elif any(word in reasoning_lower for word in ['cleaning', 'dirty', 'trash', 'hygiene']):
+        issue_type = "Cleaning"
+    elif any(word in reasoning_lower for word in ['computer', 'laptop', 'it', 'technology', 'equipment']):
+        issue_type = "IT Equipment"
+    elif any(word in reasoning_lower for word in ['safety', 'hazard', 'danger', 'risk']):
+        issue_type = "Safety"
+    
+    description = reasoning
     
     with get_connection() as conn:
         cursor = conn.cursor()

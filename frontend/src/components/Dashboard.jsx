@@ -10,8 +10,6 @@ function Dashboard({ user, onLogout }) {
   const [formData, setFormData] = useState({
     student_name: '',
     location: '',
-    issue_type: '',
-    description: '',
     image: null,
   });
   const [imagePreview, setImagePreview] = useState('');
@@ -60,14 +58,12 @@ function Dashboard({ user, onLogout }) {
       const formDataToSend = new FormData();
       formDataToSend.append('student_name', formData.student_name);
       formDataToSend.append('location', formData.location);
-      formDataToSend.append('issue_type', formData.issue_type);
-      formDataToSend.append('description', formData.description);
       formDataToSend.append('image', formData.image);
 
       const response = await ticketsAPI.createTicket(formDataToSend);
       
       setSuccess(`Ticket #${response.data.id} created successfully! Issue: ${response.data.issue_type}`);
-      setFormData({ student_name: '', location: '', issue_type: '', description: '', image: null });
+      setFormData({ student_name: '', location: '', image: null });
       setImagePreview('');
       setShowCreateForm(false);
       loadTickets();
@@ -155,40 +151,7 @@ function Dashboard({ user, onLogout }) {
               </div>
 
               <div className="form-group">
-                <label htmlFor="issue_type">Issue Type</label>
-                <select
-                  id="issue_type"
-                  value={formData.issue_type}
-                  onChange={(e) => setFormData({ ...formData, issue_type: e.target.value })}
-                  required
-                >
-                  <option value="">Select issue type</option>
-                  <option value="Electrical">⚡ Electrical</option>
-                  <option value="Plumbing">🚰 Plumbing</option>
-                  <option value="HVAC">❄️ HVAC</option>
-                  <option value="Structural">🏗️ Structural</option>
-                  <option value="Furniture">🪑 Furniture</option>
-                  <option value="Cleaning">🧹 Cleaning</option>
-                  <option value="IT Equipment">💻 IT Equipment</option>
-                  <option value="Safety">⚠️ Safety</option>
-                  <option value="Other">📦 Other</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="description">Description</label>
-                <textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Describe the issue in detail..."
-                  rows="4"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="image">Upload Photo</label>
+                <label htmlFor="image">Upload Photo (AI will analyze the issue)</label>
                 <div className="file-upload-wrapper">
                   <input
                     type="file"
