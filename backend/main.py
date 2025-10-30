@@ -278,9 +278,9 @@ def reasoning_agent(state: AgentState) -> AgentState:
 
 # Build the agent graph
 workflow = StateGraph(AgentState)
-workflow.add_node("reasoning", reasoning_agent)
-workflow.set_entry_point("reasoning")
-workflow.add_edge("reasoning", END)
+workflow.add_node("analyze", reasoning_agent)
+workflow.set_entry_point("analyze")
+workflow.add_edge("analyze", END)
 agent = workflow.compile()
 
 
