@@ -206,12 +206,21 @@ class SignupRequest(BaseModel):
     email: EmailStr
     password: str
     full_name: str
+    role: str = "student"  # Default to student if not provided
     
     @field_validator('password')
     @classmethod
     def validate_password(cls, v):
         if len(v) < 6:
             raise ValueError('Password must be at least 6 characters long')
+        return v
+    
+    @field_validator('role')
+    @classmethod
+    def validate_role(cls, v):
+        allowed_roles = ['student', 'admin']
+        if v not in allowed_roles:
+            raise ValueError(f'Role must be one of: {", ".join(allowed_roles)}')
         return v
 
 
@@ -359,7 +368,7 @@ async def signup(request: SignupRequest):
             hashed_password = get_password_hash(request.password)
             cursor.execute(
                 adapt_query("INSERT INTO users (email, password_hash, full_name, role) VALUES (?, ?, ?, ?) RETURNING id"),
-                (request.email, hashed_password, request.full_name, "student")
+                (request.email, hashed_password, request.full_name, request.role)
             )
             user_id = cursor.fetchone()[0]
             conn.commit()
@@ -373,7 +382,7 @@ async def signup(request: SignupRequest):
                     "id": user_id,
                     "email": request.email,
                     "full_name": request.full_name,
-                    "role": "student"
+                    "role": request.role
                 }
             )
     except HTTPException:
