@@ -74,7 +74,7 @@ function AdminDashboard({ user, onLogout }) {
     total: tickets.length,
     pending: tickets.filter(t => t.status === 'pending').length,
     inProgress: tickets.filter(t => t.status === 'in_progress').length,
-    resolved: tickets.filter(t => t.status === 'resolved').length,
+    resolved: tickets.filter(t => t.status === 'resolved' || t.status === 'closed').length,
   };
 
   if (loading) {
@@ -212,7 +212,7 @@ function AdminDashboard({ user, onLogout }) {
                       className="action-btn btn-progress"
                       onClick={() => handleStatusUpdate(ticket.id, 'in_progress')}
                     >
-                      Start Working
+                      ⚙️ Start Working
                     </button>
                   )}
                   {ticket.status === 'in_progress' && (
@@ -220,16 +220,13 @@ function AdminDashboard({ user, onLogout }) {
                       className="action-btn btn-resolve"
                       onClick={() => handleStatusUpdate(ticket.id, 'resolved')}
                     >
-                      Mark Resolved
+                      ✅ Mark Resolved
                     </button>
                   )}
-                  {ticket.status === 'resolved' && (
-                    <button
-                      className="action-btn btn-close"
-                      onClick={() => handleStatusUpdate(ticket.id, 'closed')}
-                    >
-                      Close Ticket
-                    </button>
+                  {(ticket.status === 'resolved' || ticket.status === 'closed') && (
+                    <span className="ticket-completed">
+                      ✅ Completed
+                    </span>
                   )}
                 </div>
               </div>
