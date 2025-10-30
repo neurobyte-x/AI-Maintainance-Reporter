@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -658,6 +658,59 @@ async def get_ticket(ticket_id: int, user: dict = Depends(verify_token)):
             created_at=ticket[8],
             priority=ticket[9]
         )
+
+
+@app.put("/api/tickets/{ticket_id}/status")
+async def update_ticket_status(
+    ticket_id: int,
+    ticket_status: str = Query(...),  # Query parameter from ?ticket_status=
+    user: dict = Depends(verify_token)
+):
+    """Update ticket status (admin only)"""
+    valid_statuses = ["pending", "in_progress", "resolved", "closed"]
+    if ticket_status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+        )
+    
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Check if user is admin
+            cursor.execute(
+                adapt_query("SELECT role FROM users WHERE id = ?"),
+                (user["user_id"],)
+            )
+            user_data = cursor.fetchone()
+            
+            if not user_data or user_data[0] != "admin":
+                raise HTTPException(status_code=403, detail="Admin access required")
+            
+            # Update ticket status
+            cursor.execute(
+                adapt_query("UPDATE tickets SET status = ? WHERE id = ?"),
+                (ticket_status, ticket_id)
+            )
+            conn.commit()
+            
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Ticket not found")
+            
+            return {
+                "message": "Ticket status updated successfully",
+                "ticket_id": ticket_id,
+                "status": ticket_status
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error updating ticket status: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error updating ticket: {str(e)}")
 
 
 # Serve static files
