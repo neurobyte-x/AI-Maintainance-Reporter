@@ -9,5 +9,4 @@ langchain-core==0.3.15
 pydantic==2.9.2
 pydantic[email]==2.9.2
 pyjwt==2.9.0
-passlib[bcrypt]==1.7.4
 psycopg2-binary>=2.9.9

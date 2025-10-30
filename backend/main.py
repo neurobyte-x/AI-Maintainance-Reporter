@@ -25,8 +25,8 @@ from pydantic import BaseModel, EmailStr, field_validator
 from PIL import Image
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
-from passlib.context import CryptContext
 import jwt
+import hashlib
 
 # Load environment variables from parent directory
 load_dotenv(Path(__file__).parent.parent / ".env")
@@ -58,7 +58,6 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
 app = FastAPI(title="AI Maintenance Reporter", version="1.0.0")
@@ -174,17 +173,14 @@ except Exception as e:
 # ...existing code...
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    # Truncate password to 72 bytes for bcrypt compatibility
-    password_bytes = plain_password.encode('utf-8')[:72]
-    return pwd_context.verify(password_bytes.decode('utf-8', errors='ignore'), hashed_password)
+    """Verify password using SHA-256 hash"""
+    password_hash = hashlib.sha256((plain_password + SECRET_KEY).encode()).hexdigest()
+    return password_hash == hashed_password
 
 
 def get_password_hash(password: str) -> str:
-    # Bcrypt has a maximum password length of 72 bytes
-    # Truncate password if necessary
-    password_bytes = password.encode('utf-8')[:72]
-    truncated_password = password_bytes.decode('utf-8', errors='ignore')
-    return pwd_context.hash(truncated_password)
+    """Hash password using SHA-256"""
+    return hashlib.sha256((password + SECRET_KEY).encode()).hexdigest()
 
 
 def create_access_token(data: dict) -> str:
@@ -216,8 +212,6 @@ class SignupRequest(BaseModel):
     def validate_password(cls, v):
         if len(v) < 6:
             raise ValueError('Password must be at least 6 characters long')
-        if len(v.encode('utf-8')) > 72:
-            raise ValueError('Password is too long (maximum 72 bytes)')
         return v
 
 
