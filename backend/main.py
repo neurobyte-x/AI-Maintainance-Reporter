@@ -689,14 +689,21 @@ async def update_ticket_status(
                 raise HTTPException(status_code=403, detail="Admin access required")
             
             # Update ticket status
+            print(f"Updating ticket {ticket_id} to status: {ticket_status}")
             cursor.execute(
                 adapt_query("UPDATE tickets SET status = ? WHERE id = ?"),
                 (ticket_status, ticket_id)
             )
+            
+            rows_affected = cursor.rowcount
+            print(f"Rows affected: {rows_affected}")
+            
             conn.commit()
             
-            if cursor.rowcount == 0:
+            if rows_affected == 0:
                 raise HTTPException(status_code=404, detail="Ticket not found")
+            
+            print(f"Ticket {ticket_id} successfully updated to {ticket_status}")
             
             return {
                 "message": "Ticket status updated successfully",

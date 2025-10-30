@@ -22,6 +22,8 @@ function AdminDashboard({ user, onLogout }) {
     try {
       setLoading(true);
       const response = await ticketsAPI.getAllTickets();
+      console.log('Fetched tickets:', response.data);
+      console.log('Stats - Resolved:', response.data.filter(t => t.status === 'resolved').length);
       setTickets(response.data);
     } catch (error) {
       console.error('Error fetching tickets:', error);
@@ -32,8 +34,11 @@ function AdminDashboard({ user, onLogout }) {
 
   const handleStatusUpdate = async (ticketId, newStatus) => {
     try {
-      await ticketsAPI.updateStatus(ticketId, newStatus);
-      fetchTickets();
+      console.log(`Updating ticket ${ticketId} to status: ${newStatus}`);
+      const response = await ticketsAPI.updateStatus(ticketId, newStatus);
+      console.log('Update response:', response);
+      await fetchTickets();
+      console.log('Tickets refetched');
       setSelectedTicket(null);
     } catch (error) {
       console.error('Error updating ticket:', error);
