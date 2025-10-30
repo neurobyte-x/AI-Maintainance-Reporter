@@ -8,7 +8,6 @@ function AdminDashboard({ user, onLogout }) {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
-  const [selectedTicket, setSelectedTicket] = useState(null);
 
   useEffect(() => {
     if (!user || user.role !== 'admin') {
@@ -37,9 +36,8 @@ function AdminDashboard({ user, onLogout }) {
       console.log(`Updating ticket ${ticketId} to status: ${newStatus}`);
       const response = await ticketsAPI.updateStatus(ticketId, newStatus);
       console.log('Update response:', response);
-      await fetchTickets();
-      console.log('Tickets refetched');
-      setSelectedTicket(null);
+  await fetchTickets();
+  console.log('Tickets refetched');
     } catch (error) {
       console.error('Error updating ticket:', error);
       alert('Failed to update ticket status');
@@ -67,6 +65,9 @@ function AdminDashboard({ user, onLogout }) {
 
   const filteredTickets = tickets.filter(ticket => {
     if (filter === 'all') return true;
+    if (filter === 'resolved') {
+      return ticket.status === 'resolved' || ticket.status === 'closed';
+    }
     return ticket.status === filter;
   });
 
