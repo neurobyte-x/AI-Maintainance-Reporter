@@ -87,7 +87,17 @@ FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 def get_connection():
     """Get database connection (PostgreSQL for Neon)"""
     if IS_POSTGRES:
-        conn = psycopg2.connect(DATABASE_URL)
+        # Handle Neon connection string - remove channel_binding if present
+        # as it may not be supported by psycopg2-binary
+        connection_string = DATABASE_URL.replace('&channel_binding=require', '').replace('?channel_binding=require', '')
+        
+        try:
+            conn = psycopg2.connect(connection_string)
+        except Exception as e:
+            print(f"Database connection failed: {str(e)}")
+            print(f"Connection string (password hidden): {connection_string.split('@')[1] if '@' in connection_string else 'invalid'}")
+            raise
+            
         conn.autocommit = False
         try:
             yield conn
