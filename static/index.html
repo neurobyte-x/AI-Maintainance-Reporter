@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Maintenance Reporter</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔧 AI Maintenance Reporter</h1>
+            <p class="subtitle">Report broken fans, lights, and equipment with AI-powered detection</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Upload Section -->
+            <section class="upload-section card">
+                <h2>📸 Report an Issue</h2>
+                <form id="ticketForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="studentName">Your Name</label>
+                        <input type="text" id="studentName" name="student_name" required placeholder="Enter your name">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="location">Location</label>
+                        <input type="text" id="location" name="location" required placeholder="e.g., Room 101, Building A">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="imageUpload">Upload Photo</label>
+                        <div class="file-upload-wrapper">
+                            <input type="file" id="imageUpload" name="image" accept="image/*" required>
+                            <label for="imageUpload" class="file-upload-label">
+                                <span class="upload-icon">📁</span>
+                                <span class="upload-text">Choose an image</span>
+                            </label>
+                        </div>
+                        <div id="imagePreview" class="image-preview"></div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <span class="btn-text">Submit Report</span>
+                        <span class="spinner" style="display: none;">⏳</span>
+                    </button>
+                </form>
+
+                <div id="resultMessage" class="result-message"></div>
+            </section>
+
+            <!-- Tickets Display Section -->
+            <section class="tickets-section card">
+                <div class="section-header">
+                    <h2>📋 Recent Tickets</h2>
+                    <button class="btn btn-secondary" id="refreshBtn">🔄 Refresh</button>
+                </div>
+                <div id="ticketsList" class="tickets-list">
+                    <p class="loading">Loading tickets...</p>
+                </div>
+            </section>
+        </div>
+
+        <footer>
+            <p>Powered by Google Gemini AI & LangGraph</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
