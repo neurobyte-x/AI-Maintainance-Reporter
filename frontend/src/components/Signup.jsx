@@ -42,6 +42,13 @@ function Signup({ onLogin }) {
       return;
     }
 
+    // Validate password byte length (bcrypt limitation)
+    const passwordBytes = new TextEncoder().encode(formData.password).length;
+    if (passwordBytes > 72) {
+      setError('Password is too long (maximum 72 bytes). Please use a shorter password.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
