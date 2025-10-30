@@ -12,7 +12,7 @@ if (-not (Test-Path ".env")) {
 
 # Start backend in background
 Write-Host "📡 Starting FastAPI backend on port 8000..." -ForegroundColor Cyan
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "python main.py"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd backend; python main.py"
 
 # Wait a bit for backend to start
 Start-Sleep -Seconds 3
