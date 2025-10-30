@@ -10,6 +10,7 @@ Path adjustments:
 """
 import os
 import sys
+import shutil
 from contextlib import contextmanager
 from typing import TypedDict, Annotated, Sequence
 from datetime import datetime, timedelta
@@ -260,69 +261,129 @@ class TicketResponse(BaseModel):
     priority: str
 
 
+# LangGraph Agent State
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], "The messages in the conversation"]
     image_path: str
-    reasoning: str
+    issue_detected: str
+    issue_type: str
     priority: str
+    ticket_created: bool
 
 
 def image_reasoning_tool(image_path: str) -> str:
-    """Tool to analyze maintenance issue images using Gemini Vision"""
+    """
+    Uses Gemini to analyze an image and detect broken or damaged objects.
+    Especially checks for issues in fans, lights, furniture, or electronics.
+    """
     try:
+        if not os.path.exists(image_path):
+            return f"Error: Image not found at {image_path}"
+
         import google.generativeai as genai
         
         genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        
+
+        model = genai.GenerativeModel("gemini-2.5-pro")
+
         image = Image.open(image_path)
-        
-        prompt = """Analyze this maintenance issue image and provide:
-        1. Detailed description of the problem
-        2. Severity assessment (low/medium/high/critical)
-        3. Recommended action
-        4. Estimated urgency
-        
-        Be specific and focus on maintenance aspects."""
-        
+
+        prompt = (
+            "You are a maintenance inspector. Analyze this image and provide a brief 2-3 sentence summary of any maintenance issues. "
+            "Focus on: fans, lights, furniture, or electronics. "
+            "If damaged: state the item and specific problem (e.g., 'Ceiling fan blade is severely bent and broken'). "
+            "If no issues: respond with exactly 'No maintenance issues detected'. "
+            "Keep your response concise and under 100 words."
+        )
+
         response = model.generate_content([prompt, image])
-        return response.text
+
+        return response.text.strip() if response.text else "No visible issues detected."
+    
     except Exception as e:
-        return f"Error analyzing image: {str(e)}"
+        return f"Error occurred: {str(e)}"
 
 
-def reasoning_agent(state: AgentState) -> AgentState:
-    """Agent that reasons about the maintenance issue"""
+def analyze_image_node(state: AgentState) -> AgentState:
+    """Node to analyze the uploaded image using Gemini"""
     image_path = state["image_path"]
     
-    if image_path and Path(image_path).exists():
-        analysis = image_reasoning_tool(image_path)
-        
-        # Determine priority based on keywords
-        analysis_lower = analysis.lower()
-        if any(word in analysis_lower for word in ['critical', 'urgent', 'dangerous', 'immediate']):
-            priority = 'high'
-        elif any(word in analysis_lower for word in ['moderate', 'medium', 'soon']):
-            priority = 'medium'
-        else:
-            priority = 'low'
-        
-        state["reasoning"] = analysis
-        state["priority"] = priority
-        state["messages"].append(AIMessage(content=f"Analysis complete. Priority: {priority}"))
-    else:
-        state["reasoning"] = "No image available for analysis"
-        state["priority"] = "medium"
+    analysis_result = image_reasoning_tool(image_path)
+    
+    state["issue_detected"] = analysis_result
+    state["messages"] = list(state.get("messages", [])) + [
+        AIMessage(content=f"Image Analysis Complete: {analysis_result}")
+    ]
     
     return state
 
 
-# Build the agent graph
-workflow = StateGraph(AgentState)
-workflow.add_node("analyze", reasoning_agent)
-workflow.set_entry_point("analyze")
-workflow.add_edge("analyze", END)
-agent = workflow.compile()
+def classify_issue_node(state: AgentState) -> AgentState:
+    """Node to classify the issue type and priority"""
+    issue_text = state["issue_detected"].lower()
+    
+    if "fan" in issue_text:
+        issue_type = "Fan"
+    elif "light" in issue_text or "bulb" in issue_text or "lamp" in issue_text:
+        issue_type = "Light"
+    elif "furniture" in issue_text or "chair" in issue_text or "table" in issue_text or "desk" in issue_text:
+        issue_type = "Furniture"
+    elif "electronics" in issue_text or "computer" in issue_text or "screen" in issue_text:
+        issue_type = "Electronics"
+    elif "electrical" in issue_text or "wire" in issue_text or "socket" in issue_text:
+        issue_type = "Electrical"
+    else:
+        issue_type = "Other"
+    
+    critical_keywords = ["severely", "broken", "damaged", "fire", "sparking", "dangerous", "hazard", "catastrophic", "major", "shattered"]
+    high_keywords = ["not working", "malfunctioning", "cracked", "bent", "loose", "leaking"]
+    low_keywords = ["no maintenance issues", "no issues", "no visible issues", "minor", "slight"]
+    
+    if any(keyword in issue_text for keyword in low_keywords):
+        priority = "low"
+    elif any(keyword in issue_text for keyword in critical_keywords):
+        priority = "high"
+    elif any(keyword in issue_text for keyword in high_keywords):
+        priority = "medium"
+    else:
+        priority = "low"
+    
+    state["issue_type"] = issue_type
+    state["priority"] = priority
+    state["messages"] = list(state.get("messages", [])) + [
+        AIMessage(content=f"Issue classified as: {issue_type} (Priority: {priority})")
+    ]
+    
+    return state
+
+
+def create_ticket_node(state: AgentState) -> AgentState:
+    """Node to mark ticket as ready for creation"""
+    state["ticket_created"] = True
+    state["messages"] = list(state.get("messages", [])) + [
+        AIMessage(content="Maintenance ticket ready to be created")
+    ]
+    
+    return state
+
+
+def build_workflow():
+    """Build the LangGraph workflow"""
+    workflow = StateGraph(AgentState)
+    
+    workflow.add_node("analyze_image", analyze_image_node)
+    workflow.add_node("classify_issue", classify_issue_node)
+    workflow.add_node("create_ticket", create_ticket_node)
+    
+    workflow.set_entry_point("analyze_image")
+    workflow.add_edge("analyze_image", "classify_issue")
+    workflow.add_edge("classify_issue", "create_ticket")
+    workflow.add_edge("create_ticket", END)
+    
+    return workflow.compile()
+
+
+agent_workflow = build_workflow()
 
 
 # Health check endpoint
@@ -455,57 +516,63 @@ async def create_ticket(
     image: UploadFile = File(...),
     user: dict = Depends(verify_token)
 ):
-    # Save uploaded image
-    image_path = str(UPLOAD_DIR / f"{datetime.now().timestamp()}_{image.filename}")
-    with open(image_path, "wb") as buffer:
-        buffer.write(await image.read())
-    
-    # Run AI analysis to extract issue_type and description
-    initial_state = AgentState(
-        messages=[HumanMessage(content=f"Analyze maintenance issue at {location}")],
-        image_path=image_path,
-        reasoning="",
-        priority="medium"
-    )
-    
-    result = agent.invoke(initial_state)
-    priority = result.get("priority", "medium")
-    reasoning = result.get("reasoning", "AI analysis unavailable")
-    
-    # Extract issue type from reasoning (simple extraction)
-    issue_type = "Maintenance"
-    reasoning_lower = reasoning.lower()
-    if any(word in reasoning_lower for word in ['electrical', 'electric', 'wire', 'outlet']):
-        issue_type = "Electrical"
-    elif any(word in reasoning_lower for word in ['plumbing', 'water', 'leak', 'pipe', 'drain']):
-        issue_type = "Plumbing"
-    elif any(word in reasoning_lower for word in ['hvac', 'cooling', 'heating', 'air conditioning', 'ventilation']):
-        issue_type = "HVAC"
-    elif any(word in reasoning_lower for word in ['structural', 'crack', 'wall', 'ceiling', 'floor']):
-        issue_type = "Structural"
-    elif any(word in reasoning_lower for word in ['furniture', 'chair', 'desk', 'table']):
-        issue_type = "Furniture"
-    elif any(word in reasoning_lower for word in ['cleaning', 'dirty', 'trash', 'hygiene']):
-        issue_type = "Cleaning"
-    elif any(word in reasoning_lower for word in ['computer', 'laptop', 'it', 'technology', 'equipment']):
-        issue_type = "IT Equipment"
-    elif any(word in reasoning_lower for word in ['safety', 'hazard', 'danger', 'risk']):
-        issue_type = "Safety"
-    
-    description = reasoning
-    
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            adapt_query("""
-                INSERT INTO tickets (user_id, student_name, location, issue_type, description, image_path, priority)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                RETURNING id, user_id, student_name, location, issue_type, description, image_path, status, created_at, priority
-            """),
-            (user["user_id"], student_name, location, issue_type, description, image_path, priority)
-        )
-        ticket = cursor.fetchone()
-        conn.commit()
+    """Upload an image and create a maintenance ticket using AI analysis"""
+    try:
+        user_id = user["user_id"]
+        print(f"Received request - Student: {student_name}, Location: {location}, Image: {image.filename}")
+        
+        if not image.filename:
+            raise HTTPException(status_code=400, detail="No image file provided")
+        
+        # Save uploaded image
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        image_filename = f"{timestamp}_{image.filename}"
+        image_path = UPLOAD_DIR / image_filename
+        
+        print(f"Saving image to: {image_path}")
+        with open(image_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+        
+        print("Image saved successfully")
+        
+        # Run AI analysis workflow
+        initial_state: AgentState = {
+            "messages": [HumanMessage(content=f"Analyzing image from {student_name} at {location}")],
+            "image_path": str(image_path),
+            "issue_detected": "",
+            "issue_type": "",
+            "priority": "",
+            "ticket_created": False
+        }
+        
+        print("Running LangGraph workflow...")
+        final_state = agent_workflow.invoke(initial_state)
+        print(f"Workflow complete - Issue: {final_state['issue_type']}, Priority: {final_state['priority']}")
+        
+        # Store ticket in database
+        print("Storing ticket in database...")
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                adapt_query("""
+                    INSERT INTO tickets (user_id, student_name, location, issue_type, description, image_path, priority)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    RETURNING id, user_id, student_name, location, issue_type, description, image_path, status, created_at, priority
+                """),
+                (
+                    user_id,
+                    student_name,
+                    location,
+                    final_state["issue_type"],
+                    final_state["issue_detected"],
+                    str(image_path),
+                    final_state["priority"],
+                ),
+            )
+            ticket = cursor.fetchone()
+            conn.commit()
+        
+        print(f"Ticket #{ticket[0]} created successfully!")
         
         return TicketResponse(
             id=ticket[0],
@@ -517,6 +584,14 @@ async def create_ticket(
             created_at=ticket[8],
             priority=ticket[9]
         )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error occurred: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
 
 @app.get("/api/tickets/", response_model=list[TicketResponse])
