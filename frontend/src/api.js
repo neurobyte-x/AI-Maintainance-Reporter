@@ -1,7 +1,22 @@
 import axios from 'axios';
 
-// Use Vite env variable if provided, fallback to local dev API
-const API_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:8000/api';
+// Determine API URL based on environment
+const getApiUrl = () => {
+  // If VITE_API_URL is explicitly set, use it
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL.replace(/\/$/, '');
+  }
+  
+  // In production (on Render), use relative path since frontend is served by backend
+  if (import.meta.env.PROD) {
+    return '/api';
+  }
+  
+  // In development, use localhost
+  return 'http://localhost:8000/api';
+};
+
+const API_URL = getApiUrl();
 
 const api = axios.create({
   baseURL: API_URL,

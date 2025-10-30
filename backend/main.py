@@ -35,11 +35,18 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 IS_POSTGRES = DATABASE_URL.startswith("postgres")
 
+# Validate critical environment variables
+if not DATABASE_URL:
+    print("WARNING: DATABASE_URL not set. Database operations will fail.")
+else:
+    print(f"Database configured: {'PostgreSQL' if IS_POSTGRES else 'Unknown'}")
+
 # Import appropriate database driver
 if IS_POSTGRES:
     try:
         import psycopg2
         import psycopg2.extras
+        print("PostgreSQL driver loaded successfully")
     except ImportError:
         print("ERROR: psycopg2-binary not found. Installing...")
         import subprocess
@@ -145,7 +152,14 @@ def init_db():
 
 
 # Initialize database on startup
-init_db()
+try:
+    print("Initializing database...")
+    init_db()
+    print("Database initialized successfully")
+except Exception as e:
+    print(f"CRITICAL: Database initialization failed: {str(e)}")
+    import traceback
+    traceback.print_exc()
 
 # ...existing code...
 
@@ -284,67 +298,106 @@ workflow.add_edge("analyze", END)
 agent = workflow.compile()
 
 
+# Health check endpoint
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint to verify database and configuration"""
+    health_status = {
+        "status": "healthy",
+        "database": "unknown",
+        "environment": "production" if DATABASE_URL else "development"
+    }
+    
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+            health_status["database"] = "connected"
+    except Exception as e:
+        health_status["status"] = "unhealthy"
+        health_status["database"] = f"error: {str(e)}"
+    
+    return health_status
+
+
 # API Routes
 @app.post("/api/auth/signup", response_model=TokenResponse)
 async def signup(request: SignupRequest):
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        
-        # Check if user exists
-        cursor.execute(
-            adapt_query("SELECT id FROM users WHERE email = ?"),
-            (request.email,)
-        )
-        if cursor.fetchone():
-            raise HTTPException(status_code=400, detail="Email already registered")
-        
-        # Create user
-        hashed_password = get_password_hash(request.password)
-        cursor.execute(
-            adapt_query("INSERT INTO users (email, password_hash, full_name, role) VALUES (?, ?, ?, ?) RETURNING id"),
-            (request.email, hashed_password, request.full_name, "student")
-        )
-        user_id = cursor.fetchone()[0]
-        conn.commit()
-        
-        # Create token
-        token = create_access_token({"sub": request.email, "user_id": user_id})
-        
-        return TokenResponse(
-            access_token=token,
-            user={
-                "id": user_id,
-                "email": request.email,
-                "full_name": request.full_name,
-                "role": "student"
-            }
-        )
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Check if user exists
+            cursor.execute(
+                adapt_query("SELECT id FROM users WHERE email = ?"),
+                (request.email,)
+            )
+            if cursor.fetchone():
+                raise HTTPException(status_code=400, detail="Email already registered")
+            
+            # Create user
+            hashed_password = get_password_hash(request.password)
+            cursor.execute(
+                adapt_query("INSERT INTO users (email, password_hash, full_name, role) VALUES (?, ?, ?, ?) RETURNING id"),
+                (request.email, hashed_password, request.full_name, "student")
+            )
+            user_id = cursor.fetchone()[0]
+            conn.commit()
+            
+            # Create token
+            token = create_access_token({"sub": request.email, "user_id": user_id})
+            
+            return TokenResponse(
+                access_token=token,
+                user={
+                    "id": user_id,
+                    "email": request.email,
+                    "full_name": request.full_name,
+                    "role": "student"
+                }
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Signup error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Signup failed: {str(e)}")
 
 
 @app.post("/api/auth/login", response_model=TokenResponse)
 async def login(request: LoginRequest):
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            adapt_query("SELECT id, email, password_hash, full_name, role FROM users WHERE email = ?"),
-            (request.email,)
-        )
-        user = cursor.fetchone()
-        
-        if not user or not verify_password(request.password, user[2]):
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-        
-        token = create_access_token({"sub": user[1], "user_id": user[0]})
-        
-        return TokenResponse(
-            access_token=token,
-            user={
-                "id": user[0],
-                "email": user[1],
-                "full_name": user[3],
-                "role": user[4]
-            }
-        )
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                adapt_query("SELECT id, email, password_hash, full_name, role FROM users WHERE email = ?"),
+                (request.email,)
+            )
+            user = cursor.fetchone()
+            
+            if not user or not verify_password(request.password, user[2]):
+                raise HTTPException(status_code=401, detail="Invalid credentials")
+            
+            token = create_access_token({"sub": user[1], "user_id": user[0]})
+            
+            return TokenResponse(
+                access_token=token,
+                user={
+                    "id": user[0],
+                    "email": user[1],
+                    "full_name": user[3],
+                    "role": user[4]
+                }
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Login error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
 
 
 @app.get("/api/auth/me", response_model=UserResponse)
