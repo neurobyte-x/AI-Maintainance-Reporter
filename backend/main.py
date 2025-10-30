@@ -720,6 +720,201 @@ async def update_ticket_status(
         raise HTTPException(status_code=500, detail=f"Error updating ticket: {str(e)}")
 
 
+class TicketUpdateRequest(BaseModel):
+    student_name: str = None
+    location: str = None
+    issue_type: str = None
+    description: str = None
+    priority: str = None
+    status: str = None
+    
+    @field_validator('priority')
+    @classmethod
+    def validate_priority(cls, v):
+        if v is not None:
+            allowed_priorities = ['low', 'medium', 'high']
+            if v not in allowed_priorities:
+                raise ValueError(f'Priority must be one of: {", ".join(allowed_priorities)}')
+        return v
+    
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v):
+        if v is not None:
+            allowed_statuses = ['pending', 'in_progress', 'resolved', 'closed']
+            if v not in allowed_statuses:
+                raise ValueError(f'Status must be one of: {", ".join(allowed_statuses)}')
+        return v
+
+
+@app.patch("/api/tickets/{ticket_id}")
+async def update_ticket(
+    ticket_id: int,
+    ticket_update: TicketUpdateRequest,
+    user: dict = Depends(verify_token)
+):
+    """Update ticket fields (owner or admin only)"""
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Get user role and ticket ownership
+            cursor.execute(
+                adapt_query("SELECT role FROM users WHERE id = ?"),
+                (user["user_id"],)
+            )
+            user_data = cursor.fetchone()
+            user_role = user_data[0] if user_data else "student"
+            
+            # Check ticket ownership
+            cursor.execute(
+                adapt_query("SELECT user_id FROM tickets WHERE id = ?"),
+                (ticket_id,)
+            )
+            ticket_data = cursor.fetchone()
+            
+            if not ticket_data:
+                raise HTTPException(status_code=404, detail="Ticket not found")
+            
+            ticket_owner_id = ticket_data[0]
+            
+            # Only owner or admin can update
+            if user_role != "admin" and ticket_owner_id != user["user_id"]:
+                raise HTTPException(status_code=403, detail="Not authorized to update this ticket")
+            
+            # Build update query dynamically based on provided fields
+            update_fields = []
+            update_values = []
+            
+            if ticket_update.student_name is not None:
+                update_fields.append("student_name = ?")
+                update_values.append(ticket_update.student_name)
+            
+            if ticket_update.location is not None:
+                update_fields.append("location = ?")
+                update_values.append(ticket_update.location)
+            
+            if ticket_update.issue_type is not None:
+                update_fields.append("issue_type = ?")
+                update_values.append(ticket_update.issue_type)
+            
+            if ticket_update.description is not None:
+                update_fields.append("description = ?")
+                update_values.append(ticket_update.description)
+            
+            if ticket_update.priority is not None:
+                update_fields.append("priority = ?")
+                update_values.append(ticket_update.priority)
+            
+            # Only admins can update status via PATCH
+            if ticket_update.status is not None:
+                if user_role != "admin":
+                    raise HTTPException(status_code=403, detail="Only admins can update ticket status")
+                update_fields.append("status = ?")
+                update_values.append(ticket_update.status)
+            
+            if not update_fields:
+                raise HTTPException(status_code=400, detail="No fields to update")
+            
+            # Execute update
+            update_query = f"UPDATE tickets SET {', '.join(update_fields)} WHERE id = ?"
+            update_values.append(ticket_id)
+            
+            print(f"Updating ticket {ticket_id}: {update_fields}")
+            cursor.execute(adapt_query(update_query), tuple(update_values))
+            conn.commit()
+            
+            # Fetch and return updated ticket
+            cursor.execute(
+                adapt_query("SELECT id, user_id, student_name, location, issue_type, description, image_path, status, created_at, priority FROM tickets WHERE id = ?"),
+                (ticket_id,)
+            )
+            ticket = cursor.fetchone()
+            
+            return TicketResponse(
+                id=ticket[0],
+                student_name=ticket[2],
+                location=ticket[3],
+                issue_type=ticket[4],
+                description=ticket[5],
+                status=ticket[7],
+                created_at=ticket[8],
+                priority=ticket[9]
+            )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error updating ticket: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error updating ticket: {str(e)}")
+
+
+@app.delete("/api/tickets/{ticket_id}")
+async def delete_ticket(
+    ticket_id: int,
+    user: dict = Depends(verify_token)
+):
+    """Delete ticket (admin only)"""
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Check if user is admin
+            cursor.execute(
+                adapt_query("SELECT role FROM users WHERE id = ?"),
+                (user["user_id"],)
+            )
+            user_data = cursor.fetchone()
+            
+            if not user_data or user_data[0] != "admin":
+                raise HTTPException(status_code=403, detail="Admin access required")
+            
+            # Get ticket info before deletion (to delete image file)
+            cursor.execute(
+                adapt_query("SELECT image_path FROM tickets WHERE id = ?"),
+                (ticket_id,)
+            )
+            ticket_data = cursor.fetchone()
+            
+            if not ticket_data:
+                raise HTTPException(status_code=404, detail="Ticket not found")
+            
+            image_path = ticket_data[0]
+            
+            # Delete ticket from database
+            print(f"Deleting ticket {ticket_id}")
+            cursor.execute(
+                adapt_query("DELETE FROM tickets WHERE id = ?"),
+                (ticket_id,)
+            )
+            conn.commit()
+            
+            # Delete associated image file if it exists
+            if image_path and os.path.exists(image_path):
+                try:
+                    os.remove(image_path)
+                    print(f"Deleted image file: {image_path}")
+                except Exception as img_error:
+                    print(f"Warning: Could not delete image file {image_path}: {str(img_error)}")
+            
+            print(f"Ticket {ticket_id} successfully deleted")
+            
+            return {
+                "message": "Ticket deleted successfully",
+                "ticket_id": ticket_id
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error deleting ticket: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error deleting ticket: {str(e)}")
+
+
 # Serve static files
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
