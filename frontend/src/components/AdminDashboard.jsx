@@ -62,14 +62,14 @@ function AdminDashboard({ user, onLogout }) {
 
   const filteredTickets = tickets.filter(ticket => {
     if (filter === 'all') return true;
-    return ticket.ticket_status === filter;
+    return ticket.status === filter;
   });
 
   const stats = {
     total: tickets.length,
-    pending: tickets.filter(t => t.ticket_status === 'pending').length,
-    inProgress: tickets.filter(t => t.ticket_status === 'in_progress').length,
-    resolved: tickets.filter(t => t.ticket_status === 'resolved').length,
+    pending: tickets.filter(t => t.status === 'pending').length,
+    inProgress: tickets.filter(t => t.status === 'in_progress').length,
+    resolved: tickets.filter(t => t.status === 'resolved').length,
   };
 
   if (loading) {
@@ -156,9 +156,9 @@ function AdminDashboard({ user, onLogout }) {
             </div>
           ) : (
             filteredTickets.map((ticket) => (
-              <div key={ticket.ticket_id} className="admin-ticket-card">
+              <div key={ticket.id} className="admin-ticket-card">
                 <div className="ticket-header">
-                  <div className="ticket-id">Ticket #{ticket.ticket_id}</div>
+                  <div className="ticket-id">Ticket #{ticket.id}</div>
                   <div className="ticket-badges">
                     <span 
                       className="priority-badge"
@@ -168,9 +168,9 @@ function AdminDashboard({ user, onLogout }) {
                     </span>
                     <span 
                       className="status-badge"
-                      style={{ backgroundColor: getStatusColor(ticket.ticket_status) }}
+                      style={{ backgroundColor: getStatusColor(ticket.status) }}
                     >
-                      {ticket.ticket_status.replace('_', ' ').toUpperCase()}
+                      {ticket.status.replace('_', ' ').toUpperCase()}
                     </span>
                   </div>
                 </div>
@@ -202,26 +202,26 @@ function AdminDashboard({ user, onLogout }) {
                 </div>
 
                 <div className="ticket-actions">
-                  {ticket.ticket_status === 'pending' && (
+                  {ticket.status === 'pending' && (
                     <button
                       className="action-btn btn-progress"
-                      onClick={() => handleStatusUpdate(ticket.ticket_id, 'in_progress')}
+                      onClick={() => handleStatusUpdate(ticket.id, 'in_progress')}
                     >
                       Start Working
                     </button>
                   )}
-                  {ticket.ticket_status === 'in_progress' && (
+                  {ticket.status === 'in_progress' && (
                     <button
                       className="action-btn btn-resolve"
-                      onClick={() => handleStatusUpdate(ticket.ticket_id, 'resolved')}
+                      onClick={() => handleStatusUpdate(ticket.id, 'resolved')}
                     >
                       Mark Resolved
                     </button>
                   )}
-                  {ticket.ticket_status === 'resolved' && (
+                  {ticket.status === 'resolved' && (
                     <button
                       className="action-btn btn-close"
-                      onClick={() => handleStatusUpdate(ticket.ticket_id, 'closed')}
+                      onClick={() => handleStatusUpdate(ticket.id, 'closed')}
                     >
                       Close Ticket
                     </button>

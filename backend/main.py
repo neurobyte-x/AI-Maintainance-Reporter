@@ -598,10 +598,26 @@ async def create_ticket(
 async def get_tickets(user: dict = Depends(verify_token)):
     with get_connection() as conn:
         cursor = conn.cursor()
+        
+        # Get user role to determine if admin
         cursor.execute(
-            adapt_query("SELECT id, user_id, student_name, location, issue_type, description, image_path, status, created_at, priority FROM tickets WHERE user_id = ? ORDER BY created_at DESC"),
+            adapt_query("SELECT role FROM users WHERE id = ?"),
             (user["user_id"],)
         )
+        user_data = cursor.fetchone()
+        user_role = user_data[0] if user_data else "student"
+        
+        # Admins see all tickets, students see only their own
+        if user_role == "admin":
+            cursor.execute(
+                adapt_query("SELECT id, user_id, student_name, location, issue_type, description, image_path, status, created_at, priority FROM tickets ORDER BY created_at DESC")
+            )
+        else:
+            cursor.execute(
+                adapt_query("SELECT id, user_id, student_name, location, issue_type, description, image_path, status, created_at, priority FROM tickets WHERE user_id = ? ORDER BY created_at DESC"),
+                (user["user_id"],)
+            )
+        
         tickets = cursor.fetchall()
         
         return [
