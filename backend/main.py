@@ -29,20 +29,16 @@ from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 import jwt
 import hashlib
 
-# Load environment variables from parent directory
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-# Database configuration (Neon Postgres)
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 IS_POSTGRES = DATABASE_URL.startswith("postgres")
 
-# Validate critical environment variables
 if not DATABASE_URL:
     print("WARNING: DATABASE_URL not set. Database operations will fail.")
 else:
     print(f"Database configured: {'PostgreSQL' if IS_POSTGRES else 'Unknown'}")
 
-# Import appropriate database driver
 if IS_POSTGRES:
     try:
         import psycopg2
@@ -57,13 +53,12 @@ if IS_POSTGRES:
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
 security = HTTPBearer()
 
 app = FastAPI(title="AI Maintenance Reporter", version="1.0.0")
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -72,7 +67,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Directory setup (relative to backend folder)
 BASE_DIR = Path(__file__).parent.parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -87,8 +81,6 @@ FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 def get_connection():
     """Get database connection (PostgreSQL for Neon)"""
     if IS_POSTGRES:
-        # Handle Neon connection string - remove channel_binding if present
-        # as it may not be supported by psycopg2-binary
         connection_string = DATABASE_URL.replace('&channel_binding=require', '').replace('?channel_binding=require', '')
         
         try:
@@ -112,7 +104,6 @@ def get_connection():
 def adapt_query(query: str) -> str:
     """Adapt SQL query for PostgreSQL"""
     if IS_POSTGRES:
-        # Replace ? with %s for PostgreSQL
         counter = 0
         result = []
         for char in query:
@@ -130,7 +121,6 @@ def init_db():
     with get_connection() as conn:
         cursor = conn.cursor()
         
-        # Users table
         cursor.execute(adapt_query("""
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -142,7 +132,6 @@ def init_db():
             )
         """))
         
-        # Tickets table
         cursor.execute(adapt_query("""
             CREATE TABLE IF NOT EXISTS tickets (
                 id SERIAL PRIMARY KEY,
@@ -161,7 +150,6 @@ def init_db():
         conn.commit()
 
 
-# Initialize database on startup
 try:
     print("Initializing database...")
     init_db()
@@ -170,8 +158,6 @@ except Exception as e:
     print(f"CRITICAL: Database initialization failed: {str(e)}")
     import traceback
     traceback.print_exc()
-
-# ...existing code...
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify password using SHA-256 hash"""
@@ -202,12 +188,11 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-# Models
 class SignupRequest(BaseModel):
     email: EmailStr
     password: str
     full_name: str
-    role: str = "student"  # Default to student if not provided
+    role: str = "student"
     
     @field_validator('password')
     @classmethod
@@ -261,7 +246,6 @@ class TicketResponse(BaseModel):
     priority: str
 
 
-# LangGraph Agent State
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], "The messages in the conversation"]
     image_path: str
@@ -386,7 +370,6 @@ def build_workflow():
 agent_workflow = build_workflow()
 
 
-# Health check endpoint
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint to verify database and configuration"""
@@ -409,14 +392,12 @@ async def health_check():
     return health_status
 
 
-# API Routes
 @app.post("/api/auth/signup", response_model=TokenResponse)
 async def signup(request: SignupRequest):
     try:
         with get_connection() as conn:
             cursor = conn.cursor()
             
-            # Check if user exists
             cursor.execute(
                 adapt_query("SELECT id FROM users WHERE email = ?"),
                 (request.email,)
@@ -424,7 +405,6 @@ async def signup(request: SignupRequest):
             if cursor.fetchone():
                 raise HTTPException(status_code=400, detail="Email already registered")
             
-            # Create user
             hashed_password = get_password_hash(request.password)
             cursor.execute(
                 adapt_query("INSERT INTO users (email, password_hash, full_name, role) VALUES (?, ?, ?, ?) RETURNING id"),
@@ -433,7 +413,6 @@ async def signup(request: SignupRequest):
             user_id = cursor.fetchone()[0]
             conn.commit()
             
-            # Create token
             token = create_access_token({"sub": request.email, "user_id": user_id})
             
             return TokenResponse(
@@ -524,7 +503,6 @@ async def create_ticket(
         if not image.filename:
             raise HTTPException(status_code=400, detail="No image file provided")
         
-        # Save uploaded image
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         image_filename = f"{timestamp}_{image.filename}"
         image_path = UPLOAD_DIR / image_filename
@@ -535,7 +513,6 @@ async def create_ticket(
         
         print("Image saved successfully")
         
-        # Run AI analysis workflow
         initial_state: AgentState = {
             "messages": [HumanMessage(content=f"Analyzing image from {student_name} at {location}")],
             "image_path": str(image_path),
@@ -549,7 +526,6 @@ async def create_ticket(
         final_state = agent_workflow.invoke(initial_state)
         print(f"Workflow complete - Issue: {final_state['issue_type']}, Priority: {final_state['priority']}")
         
-        # Store ticket in database
         print("Storing ticket in database...")
         with get_connection() as conn:
             cursor = conn.cursor()
@@ -599,7 +575,6 @@ async def get_tickets(user: dict = Depends(verify_token)):
     with get_connection() as conn:
         cursor = conn.cursor()
         
-        # Get user role to determine if admin
         cursor.execute(
             adapt_query("SELECT role FROM users WHERE id = ?"),
             (user["user_id"],)
@@ -607,7 +582,6 @@ async def get_tickets(user: dict = Depends(verify_token)):
         user_data = cursor.fetchone()
         user_role = user_data[0] if user_data else "student"
         
-        # Admins see all tickets, students see only their own
         if user_role == "admin":
             cursor.execute(
                 adapt_query("SELECT id, user_id, student_name, location, issue_type, description, image_path, status, created_at, priority FROM tickets ORDER BY created_at DESC")
@@ -663,7 +637,7 @@ async def get_ticket(ticket_id: int, user: dict = Depends(verify_token)):
 @app.put("/api/tickets/{ticket_id}/status")
 async def update_ticket_status(
     ticket_id: int,
-    ticket_status: str = Query(...),  # Query parameter from ?ticket_status=
+    ticket_status: str = Query(...),
     user: dict = Depends(verify_token)
 ):
     """Update ticket status (admin only)"""
@@ -678,7 +652,6 @@ async def update_ticket_status(
         with get_connection() as conn:
             cursor = conn.cursor()
             
-            # Check if user is admin
             cursor.execute(
                 adapt_query("SELECT role FROM users WHERE id = ?"),
                 (user["user_id"],)
@@ -688,7 +661,6 @@ async def update_ticket_status(
             if not user_data or user_data[0] != "admin":
                 raise HTTPException(status_code=403, detail="Admin access required")
             
-            # Update ticket status
             print(f"Updating ticket {ticket_id} to status: {ticket_status}")
             cursor.execute(
                 adapt_query("UPDATE tickets SET status = ? WHERE id = ?"),
@@ -721,12 +693,12 @@ async def update_ticket_status(
 
 
 class TicketUpdateRequest(BaseModel):
-    student_name: str = None
-    location: str = None
-    issue_type: str = None
-    description: str = None
-    priority: str = None
-    status: str = None
+    student_name: str | None = None
+    location: str | None = None
+    issue_type: str | None = None
+    description: str | None = None
+    priority: str | None = None
+    status: str | None = None
     
     @field_validator('priority')
     @classmethod
@@ -758,7 +730,6 @@ async def update_ticket(
         with get_connection() as conn:
             cursor = conn.cursor()
             
-            # Get user role and ticket ownership
             cursor.execute(
                 adapt_query("SELECT role FROM users WHERE id = ?"),
                 (user["user_id"],)
@@ -766,7 +737,6 @@ async def update_ticket(
             user_data = cursor.fetchone()
             user_role = user_data[0] if user_data else "student"
             
-            # Check ticket ownership
             cursor.execute(
                 adapt_query("SELECT user_id FROM tickets WHERE id = ?"),
                 (ticket_id,)
@@ -778,11 +748,9 @@ async def update_ticket(
             
             ticket_owner_id = ticket_data[0]
             
-            # Only owner or admin can update
             if user_role != "admin" and ticket_owner_id != user["user_id"]:
                 raise HTTPException(status_code=403, detail="Not authorized to update this ticket")
             
-            # Build update query dynamically based on provided fields
             update_fields = []
             update_values = []
             
@@ -806,7 +774,6 @@ async def update_ticket(
                 update_fields.append("priority = ?")
                 update_values.append(ticket_update.priority)
             
-            # Only admins can update status via PATCH
             if ticket_update.status is not None:
                 if user_role != "admin":
                     raise HTTPException(status_code=403, detail="Only admins can update ticket status")
@@ -816,7 +783,6 @@ async def update_ticket(
             if not update_fields:
                 raise HTTPException(status_code=400, detail="No fields to update")
             
-            # Execute update
             update_query = f"UPDATE tickets SET {', '.join(update_fields)} WHERE id = ?"
             update_values.append(ticket_id)
             
@@ -824,7 +790,6 @@ async def update_ticket(
             cursor.execute(adapt_query(update_query), tuple(update_values))
             conn.commit()
             
-            # Fetch and return updated ticket
             cursor.execute(
                 adapt_query("SELECT id, user_id, student_name, location, issue_type, description, image_path, status, created_at, priority FROM tickets WHERE id = ?"),
                 (ticket_id,)
@@ -861,7 +826,6 @@ async def delete_ticket(
         with get_connection() as conn:
             cursor = conn.cursor()
             
-            # Check if user is admin
             cursor.execute(
                 adapt_query("SELECT role FROM users WHERE id = ?"),
                 (user["user_id"],)
@@ -871,7 +835,6 @@ async def delete_ticket(
             if not user_data or user_data[0] != "admin":
                 raise HTTPException(status_code=403, detail="Admin access required")
             
-            # Get ticket info before deletion (to delete image file)
             cursor.execute(
                 adapt_query("SELECT image_path FROM tickets WHERE id = ?"),
                 (ticket_id,)
@@ -883,7 +846,6 @@ async def delete_ticket(
             
             image_path = ticket_data[0]
             
-            # Delete ticket from database
             print(f"Deleting ticket {ticket_id}")
             cursor.execute(
                 adapt_query("DELETE FROM tickets WHERE id = ?"),
@@ -891,7 +853,6 @@ async def delete_ticket(
             )
             conn.commit()
             
-            # Delete associated image file if it exists
             if image_path and os.path.exists(image_path):
                 try:
                     os.remove(image_path)
@@ -915,11 +876,9 @@ async def delete_ticket(
         raise HTTPException(status_code=500, detail=f"Error deleting ticket: {str(e)}")
 
 
-# Serve static files
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
-# Serve React frontend
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
     
