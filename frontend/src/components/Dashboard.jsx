@@ -99,7 +99,7 @@ function Dashboard({ user, onLogout }) {
   return (
     <div>
       <div className="header">
-        <h1>🔧 AI Maintenance Reporter</h1>
+        <h1> AI Maintenance Reporter</h1>
         <div className="user-info">
           <span>Welcome, {user.full_name}!</span>
           <button className="btn btn-logout" onClick={onLogout}>

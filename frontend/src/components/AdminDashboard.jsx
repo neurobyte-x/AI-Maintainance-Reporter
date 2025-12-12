@@ -87,7 +87,7 @@ function AdminDashboard({ user, onLogout }) {
       <header className="admin-header">
         <div className="header-content">
           <div className="header-left">
-            <h1>🔧 Admin Dashboard</h1>
+            <h1> Admin Dashboard</h1>
             <p>Welcome, {user?.full_name}</p>
           </div>
           <button onClick={onLogout} className="logout-btn">

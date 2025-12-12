@@ -1,4 +1,4 @@
-# AI Maintenance Reporter 🔧
+# AI Maintenance Reporter 
 
 An intelligent maintenance ticket system that uses Google Gemini AI and LangGraph to automatically detect and classify broken equipment from photos.
 

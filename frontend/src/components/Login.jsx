@@ -64,7 +64,7 @@ function Login({ onLogin }) {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
-          <h1>🔧 AI Maintenance Reporter</h1>
+          <h1> AI Maintenance Reporter</h1>
           <p>REVA University</p>
           <h2 className="user-type-title">
             {userType === 'admin' ? '👨‍💼 Admin Login' : '👨‍🎓 Student Login'}
