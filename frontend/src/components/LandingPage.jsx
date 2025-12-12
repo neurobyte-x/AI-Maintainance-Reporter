@@ -23,7 +23,7 @@ function LandingPage() {
       <nav className="navbar">
         <div className="nav-container">
           <div className="logo">
-            <span className="logo-icon">🔧</span>
+            <span className="logo-icon"></span>
             <span className="logo-text">AI Maintenance Reporter</span>
           </div>
           <div className="nav-links">
