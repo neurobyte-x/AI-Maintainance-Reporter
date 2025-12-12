@@ -268,7 +268,7 @@ def image_reasoning_tool(image_path: str) -> str:
         
         genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-        model = genai.GenerativeModel("gemini-2.5-pro")
+        model = genai.GenerativeModel("gemini-2.5-flash")
 
         image = Image.open(image_path)
 
