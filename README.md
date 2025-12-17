@@ -138,3 +138,7 @@ AAD/
 ---
 
 **API Documentation**: Visit `/docs` when server is running for interactive Swagger UI
+
+
+
+© 2025 Neurobyte_X (Sooraj Hegde). All rights reserved.
