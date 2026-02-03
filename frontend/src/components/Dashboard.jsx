@@ -96,29 +96,59 @@ function Dashboard({ user, onLogout }) {
     }
   };
 
+  const getPriorityClasses = (priority) => {
+    switch (priority) {
+      case 'high': return 'bg-red-100 text-red-800';
+      case 'medium': return 'bg-amber-100 text-amber-800';
+      case 'low': return 'bg-emerald-100 text-[#00C896]';
+      default: return 'bg-gray-100 text-gray-600';
+    }
+  };
+
+  const getStatusClasses = (status) => {
+    switch (status) {
+      case 'pending': return 'bg-amber-100 text-amber-800';
+      case 'in_progress': return 'bg-[#F4EEFF] text-[#6C5CE7]';
+      case 'resolved': return 'bg-emerald-100 text-[#00C896]';
+      default: return 'bg-gray-100 text-gray-600';
+    }
+  };
+
   return (
-    <div>
-      <div className="header">
-        <h1> AI Maintenance Reporter</h1>
-        <div className="user-info">
-          <span>Welcome, {user.full_name}!</span>
-          <button className="btn btn-logout" onClick={onLogout}>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white px-8 py-4 shadow-md mb-8 flex justify-between items-center">
+        <h1 className="text-[#6C5CE7] text-2xl font-bold"> AI Maintenance Reporter</h1>
+        <div className="flex items-center gap-4">
+          <span className="text-gray-700">Welcome, {user.full_name}!</span>
+          <button 
+            className="py-2 px-4 rounded-lg text-sm font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors"
+            onClick={onLogout}
+          >
             Logout
           </button>
         </div>
       </div>
 
-      <div className="container">
-        {error && <div className="error-message">{error}</div>}
-        {success && <div className="success-message">{success}</div>}
+      <div className="max-w-6xl mx-auto px-8">
+        {error && (
+          <div className="bg-red-50 text-red-800 p-3 rounded-lg mb-4 border-l-4 border-red-500">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="bg-emerald-50 text-[#00C896] p-3 rounded-lg mb-4 border-l-4 border-[#00C896]">
+            {success}
+          </div>
+        )}
 
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h2>📸 Report an Issue</h2>
+        {/* Create Report Card */}
+        <div className="bg-white rounded-2xl p-8 shadow-xl mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-900">📸 Report an Issue</h2>
             <button
-              className="btn btn-primary"
+              className="py-2.5 px-6 rounded-lg font-semibold transition-all duration-300 bg-gradient-primary text-white hover:-translate-y-0.5 hover:shadow-lg"
               onClick={() => setShowCreateForm(!showCreateForm)}
-              style={{ width: 'auto' }}
             >
               {showCreateForm ? 'Cancel' : 'New Report'}
             </button>
@@ -126,8 +156,10 @@ function Dashboard({ user, onLogout }) {
 
           {showCreateForm && (
             <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label htmlFor="student_name">Your Name</label>
+              <div className="mb-6">
+                <label htmlFor="student_name" className="block mb-2 font-semibold text-gray-900">
+                  Your Name
+                </label>
                 <input
                   type="text"
                   id="student_name"
@@ -135,11 +167,14 @@ function Dashboard({ user, onLogout }) {
                   onChange={(e) => setFormData({ ...formData, student_name: e.target.value })}
                   placeholder="Enter your name"
                   required
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-base transition-colors duration-300 focus:outline-none focus:border-[#6C5CE7]"
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="location">Location</label>
+              <div className="mb-6">
+                <label htmlFor="location" className="block mb-2 font-semibold text-gray-900">
+                  Location
+                </label>
                 <input
                   type="text"
                   id="location"
@@ -147,82 +182,89 @@ function Dashboard({ user, onLogout }) {
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                   placeholder="e.g., Room 101, Building A"
                   required
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-base transition-colors duration-300 focus:outline-none focus:border-[#6C5CE7]"
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="image">Upload Photo (AI will analyze the issue)</label>
-                <div className="file-upload-wrapper">
+              <div className="mb-6">
+                <label htmlFor="image" className="block mb-2 font-semibold text-gray-900">
+                  Upload Photo (AI will analyze the issue)
+                </label>
+                <div className="relative">
                   <input
                     type="file"
                     id="image"
                     accept="image/*"
                     onChange={handleFileChange}
                     required
+                    className="absolute w-px h-px opacity-0 overflow-hidden"
                   />
-                  <label htmlFor="image" className="file-upload-label">
-                    <span>📁</span>
-                    <span>{formData.image ? formData.image.name : 'Choose an image'}</span>
+                  <label 
+                    htmlFor="image" 
+                    className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer transition-all duration-300 bg-gray-50 hover:border-[#6C5CE7] hover:bg-gray-100"
+                  >
+                    <span className="text-2xl">📁</span>
+                    <span className="font-medium text-gray-500">
+                      {formData.image ? formData.image.name : 'Choose an image'}
+                    </span>
                   </label>
                 </div>
                 {imagePreview && (
-                  <div className="image-preview">
-                    <img src={imagePreview} alt="Preview" />
+                  <div className="mt-4 rounded-lg overflow-hidden">
+                    <img src={imagePreview} alt="Preview" className="w-full max-h-72 object-cover rounded-lg" />
                   </div>
                 )}
               </div>
 
-              <button type="submit" className="btn btn-primary" disabled={submitting}>
+              <button 
+                type="submit" 
+                className="w-full py-3.5 px-8 rounded-lg text-base font-semibold cursor-pointer transition-all duration-300 inline-flex items-center justify-center gap-2 bg-gradient-primary text-white hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+                disabled={submitting}
+              >
                 {submitting ? 'Submitting...' : 'Submit Report'}
               </button>
             </form>
           )}
         </div>
 
-        <div className="card">
-          <h2>📋 Recent Tickets</h2>
+        {/* Recent Tickets Card */}
+        <div className="bg-white rounded-2xl p-8 shadow-xl">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">📋 Recent Tickets</h2>
           {loading ? (
-            <div className="loading">Loading tickets...</div>
+            <div className="text-center py-8 text-gray-500">Loading tickets...</div>
           ) : tickets.length === 0 ? (
-            <div className="loading">No tickets found. Create your first report!</div>
+            <div className="text-center py-8 text-gray-500">No tickets found. Create your first report!</div>
           ) : (
-            <div className="tickets-grid">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {tickets.map((ticket) => (
-                <div key={ticket.id} className="ticket-card">
-                  <div className="ticket-header">
-                    <span className="ticket-id">#{ticket.id}</span>
-                    <span className={`priority-badge priority-${ticket.priority}`}>
+                <div 
+                  key={ticket.id} 
+                  className="bg-gray-50 border border-gray-200 rounded-lg p-4 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="font-bold text-[#6C5CE7] text-sm">#{ticket.id}</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${getPriorityClasses(ticket.priority)}`}>
                       {ticket.priority}
                     </span>
                   </div>
-                  <div style={{ marginBottom: '0.5rem' }}>
+                  <div className="mb-2 text-gray-700">
                     <strong>👤 Student:</strong> {ticket.student_name}
                   </div>
-                  <div style={{ marginBottom: '0.5rem' }}>
+                  <div className="mb-2 text-gray-700">
                     <strong>📍 Location:</strong> {ticket.location}
                   </div>
-                  <div style={{ marginBottom: '0.5rem' }}>
+                  <div className="mb-2 text-gray-700">
                     <strong>🔧 Issue:</strong> {ticket.issue_type}
                   </div>
-                  <div style={{ marginBottom: '0.5rem' }}>
+                  <div className="mb-2 text-gray-700">
                     <strong>📅 Created:</strong> {formatDate(ticket.created_at)}
                   </div>
-                  <div
-                    style={{
-                      background: 'white',
-                      padding: '0.75rem',
-                      borderRadius: '6px',
-                      marginTop: '0.75rem',
-                      fontSize: '0.875rem',
-                      color: '#64748b',
-                      lineHeight: '1.5',
-                    }}
-                  >
-                    <strong>Description:</strong>
+                  <div className="bg-white p-3 rounded-md mt-3 text-sm text-gray-500 leading-relaxed">
+                    <strong className="text-gray-700">Description:</strong>
                     <br />
                     {ticket.description}
                   </div>
-                  <span className={`status-badge status-${ticket.status}`}>
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase mt-2 ${getStatusClasses(ticket.status)}`}>
                     {ticket.status.replace('_', ' ')}
                   </span>
                 </div>

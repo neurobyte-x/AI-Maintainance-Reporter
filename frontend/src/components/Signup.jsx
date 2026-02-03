@@ -58,21 +58,27 @@ function Signup({ onLogin }) {
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <div className="auth-header">
-          <h1> AI Maintenance Reporter</h1>
-          <p>Create your account</p>
-          <h2 className="user-type-title">
+    <div className="flex justify-center items-center min-h-screen p-8 bg-gray-50">
+      <div className="bg-white rounded-2xl p-12 shadow-xl w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-[#6C5CE7] mb-2"> AI Maintenance Reporter</h1>
+          <p className="text-gray-500">Create your account</p>
+          <h2 className="text-2xl mt-4 text-gray-900 flex items-center justify-center gap-2">
             {userType === 'admin' ? '👨‍💼 Admin Registration' : '👨‍🎓 Student Registration'}
           </h2>
         </div>
 
-        {error && <div className="error-message">{error}</div>}
+        {error && (
+          <div className="bg-red-50 text-red-800 p-3 rounded-lg mb-4 border-l-4 border-red-500">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="full_name">Full Name</label>
+          <div className="mb-6">
+            <label htmlFor="full_name" className="block mb-2 font-semibold text-gray-900">
+              Full Name
+            </label>
             <input
               type="text"
               id="full_name"
@@ -81,11 +87,14 @@ function Signup({ onLogin }) {
               onChange={handleChange}
               placeholder="Enter your full name"
               required
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-base transition-colors duration-300 focus:outline-none focus:border-[#6C5CE7]"
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="email">REVA Email Address</label>
+          <div className="mb-6">
+            <label htmlFor="email" className="block mb-2 font-semibold text-gray-900">
+              REVA Email Address
+            </label>
             <input
               type="email"
               id="email"
@@ -94,14 +103,17 @@ function Signup({ onLogin }) {
               onChange={handleChange}
               placeholder="your.name@reva.edu.in"
               required
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-base transition-colors duration-300 focus:outline-none focus:border-[#6C5CE7]"
             />
-            <small style={{ color: '#64748b', fontSize: '0.875rem' }}>
+            <small className="text-gray-500 text-sm">
               Only @reva.edu.in emails are allowed
             </small>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
+          <div className="mb-6">
+            <label htmlFor="password" className="block mb-2 font-semibold text-gray-900">
+              Password
+            </label>
             <input
               type="password"
               id="password"
@@ -111,23 +123,32 @@ function Signup({ onLogin }) {
               placeholder="At least 6 characters"
               required
               minLength={6}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-base transition-colors duration-300 focus:outline-none focus:border-[#6C5CE7]"
             />
           </div>
 
-          <button type="submit" className="btn btn-primary" disabled={loading}>
+          <button 
+            type="submit" 
+            className="w-full py-3.5 px-8 rounded-lg text-base font-semibold cursor-pointer transition-all duration-300 inline-flex items-center justify-center gap-2 bg-gradient-primary text-white hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+            disabled={loading}
+          >
             {loading ? 'Creating account...' : 'Sign Up'}
           </button>
         </form>
 
-        <div className="auth-footer">
+        <div className="text-center mt-6 text-gray-500">
           Already have an account?{' '}
           <Link to={`/login/${userType || 'student'}`}>
-            <button>Login here</button>
+            <button className="bg-transparent border-none text-[#6C5CE7] cursor-pointer font-semibold underline">
+              Login here
+            </button>
           </Link>
         </div>
-        <div className="auth-footer">
+        <div className="text-center mt-6">
           <Link to="/">
-            <button className="back-btn">← Back to Home</button>
+            <button className="w-full mt-2 py-3 px-4 bg-gray-100 text-gray-900 border border-gray-200 rounded-lg font-semibold cursor-pointer transition-all duration-300 hover:bg-gray-200">
+              ← Back to Home
+            </button>
           </Link>
         </div>
       </div>
