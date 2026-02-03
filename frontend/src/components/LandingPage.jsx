@@ -23,7 +23,7 @@ function LandingPage() {
       <nav className="bg-white/95 backdrop-blur-sm fixed top-0 left-0 right-0 z-50 shadow-md">
         <div className="max-w-6xl mx-auto px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2 text-2xl font-bold text-[#6C5CE7]">
-            <span className="text-3xl"></span>
+            <span className="text-3xl">🔧</span>
             <span>AI Maintenance Reporter</span>
           </div>
           <div className="hidden md:flex gap-8">

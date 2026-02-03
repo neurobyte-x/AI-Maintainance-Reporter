@@ -264,8 +264,8 @@ function Dashboard({ user, onLogout }) {
                     <br />
                     {ticket.description}
                   </div>
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase mt-2 ${getStatusClasses(ticket.status)}`}>
-                    {ticket.status.replace('_', ' ')}
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase mt-2 ${getStatusClasses(ticket?.status || 'unknown')}`}>
+                    {(ticket?.status || 'unknown').replace('_', ' ')}
                   </span>
                 </div>
               ))}

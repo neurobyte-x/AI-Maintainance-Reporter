@@ -175,15 +175,15 @@ function AdminDashboard({ user, onLogout }) {
                   <div className="flex gap-2">
                     <span 
                       className="px-3 py-1 rounded-md text-xs font-bold text-white uppercase tracking-wide"
-                      style={{ backgroundColor: getPriorityColor(ticket.priority) }}
+                      style={{ backgroundColor: getPriorityColor(ticket?.priority ?? 'unknown') }}
                     >
-                      {ticket.priority.toUpperCase()}
+                      {(ticket?.priority ?? 'unknown').toUpperCase()}
                     </span>
                     <span 
                       className="px-3 py-1 rounded-md text-xs font-bold text-white uppercase tracking-wide"
-                      style={{ backgroundColor: getStatusColor(ticket.status) }}
+                      style={{ backgroundColor: getStatusColor(ticket?.status ?? 'unknown') }}
                     >
-                      {ticket.status.replace('_', ' ').toUpperCase()}
+                      {(ticket?.status ?? 'unknown').replace('_', ' ').toUpperCase()}
                     </span>
                   </div>
                 </div>

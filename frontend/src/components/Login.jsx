@@ -64,7 +64,7 @@ function Login({ onLogin }) {
     <div className="flex justify-center items-center min-h-screen p-8 bg-gray-50">
       <div className="bg-white rounded-2xl p-12 shadow-xl w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-[#6C5CE7] mb-2"> AI Maintenance Reporter</h1>
+          <h1 className="text-3xl font-bold text-[#6C5CE7] mb-2">AI Maintenance Reporter</h1>
           <p className="text-gray-500">REVA University</p>
           <h2 className="text-2xl mt-4 text-gray-900 flex items-center justify-center gap-2">
             {userType === 'admin' ? '👨‍💼 Admin Login' : '👨‍🎓 Student Login'}
@@ -121,17 +121,19 @@ function Login({ onLogin }) {
 
         <div className="text-center mt-6 text-gray-500">
           Don't have an account?{' '}
-          <Link to={`/signup/${userType || 'student'}`}>
-            <button className="bg-transparent border-none text-[#6C5CE7] cursor-pointer font-semibold underline">
-              Sign up here
-            </button>
+          <Link 
+            to={`/signup/${userType || 'student'}`}
+            className="bg-transparent border-none text-[#6C5CE7] cursor-pointer font-semibold underline"
+          >
+            Sign up here
           </Link>
         </div>
         <div className="text-center mt-6">
-          <Link to="/">
-            <button className="w-full mt-2 py-3 px-4 bg-gray-100 text-gray-900 border border-gray-200 rounded-lg font-semibold cursor-pointer transition-all duration-300 hover:bg-gray-200">
-              ← Back to Home
-            </button>
+          <Link 
+            to="/"
+            className="block w-full mt-2 py-3 px-4 bg-gray-100 text-gray-900 border border-gray-200 rounded-lg font-semibold cursor-pointer transition-all duration-300 hover:bg-gray-200"
+          >
+            ← Back to Home
           </Link>
         </div>
       </div>
