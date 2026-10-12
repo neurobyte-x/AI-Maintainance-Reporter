@@ -1,0 +1,151 @@
+High-Level Purpose
+What problem does this project solve?
+It automates campus maintenance reporting by turning uploaded photos into structured maintenance tickets using AI image analysis, then routes those tickets through role-based workflows (student submits, admin manages). This is implemented in main.py:491, main.py:573, and main.py:637.
+What is the main goal of the system?
+The main goal is to reduce manual triage by automatically generating issue description, category, and priority from an image, then persisting and tracking ticket lifecycle in PostgreSQL. Core logic is in main.py:258, main.py:305, and DB schema in NEON_SCHEMA.sql.
+Architecture Overview
+List all major components (backend, frontend, database, cache, APIs, etc.)
+Backend API:
+main.py (FastAPI app, auth, ticket APIs, AI workflow, static serving)
+Frontend SPA client:
+App.jsx, API adapter in api.js
+Legacy static client:
+index.html, app.js
+Database:
+PostgreSQL/Neon via NEON_SCHEMA.sql, runtime access in main.py:81
+External AI API:
+Google Gemini called from main.py:258
+Deployment config:
+render.yaml, dependencies in requirements.txt
+
+Explain how they interact (flow in text form)
+Client sends HTTP requests to FastAPI endpoints under /api using JWT auth header injected by api.js:26.
+FastAPI validates token via main.py:180, opens DB transaction via main.py:81, and for ticket creation runs a LangGraph pipeline main.py:354 that calls Gemini main.py:258.
+Processed ticket is inserted into tickets table main.py:533, then API returns normalized response model main.py:238.
+Admin operations (status update/delete) enforce role checks from users table main.py:650, main.py:832.
+
+Core Request Flow (Step-by-step)
+Describe what happens when a request enters the system
+Request hits FastAPI route handler, such as signup/login/tickets in main.py:395, main.py:436, main.py:491.
+Protected routes require Bearer token; token is decoded and verified in main.py:180.
+DB connection context manager opens transaction and handles commit/rollback in main.py:81.
+Business logic executes (auth checks, ownership checks, admin role checks, or AI analysis pipeline).
+Response is serialized through Pydantic models like main.py:238.
+Include all major processing steps until response is returned
+For POST /api/tickets/ specifically:
+Validate multipart form fields and image presence main.py:491.
+
+Save image file to uploads directory main.py:510.
+
+Build initial LangGraph state and invoke workflow main.py:517.
+
+Node 1 analyzes image with Gemini main.py:291.
+
+Node 2 classifies issue type and priority by keyword rules main.py:305.
+
+Node 3 marks ticket ready main.py:344.
+
+Insert ticket row in DB with inferred fields main.py:533.
+
+Return ticket payload with id, issue_type, description, status, created_at, priority main.py:556.
+
+Key Modules & Responsibilities
+
+Identify important files/classes/services
+main.py
+NEON_SCHEMA.sql
+api.js
+render.yaml
+
+Explain what each module does
+main.py:
+Defines app setup, CORS, DB access, auth, AI workflow, ticket CRUD/status endpoints, and static/frontend serving fallback.
+Important classes/models: SignupRequest main.py:191, TokenResponse main.py:218, TicketResponse main.py:238, TicketUpdateRequest main.py:695.
+Important services/functions: DB transaction manager main.py:81, JWT verify main.py:180, image reasoning main.py:258, workflow builder main.py:354.
+
+NEON_SCHEMA.sql:
+Defines users/tickets tables, FK relationship, and indexes for query performance.
+
+api.js:
+Central API client with environment-based base URL, auth header injection, and wrapper methods for auth/tickets endpoints.
+
+render.yaml:
+Production build/start process and environment variable wiring for deployment.
+
+Key Technical Decisions
+What technologies are used (e.g., Redis, FastAPI, Spring Boot)?
+FastAPI (API layer), Pydantic (validation/serialization), PyJWT (auth token), psycopg2 (PostgreSQL), LangGraph + LangChain core messages (workflow orchestration/state), Google Generative AI Gemini model (image reasoning), React + Axios (client), Render deployment config. Sources: requirements.txt, main.py, render.yaml.
+
+Why are they used in this project?
+FastAPI + Pydantic provide concise typed API with automatic validation.
+JWT enables stateless auth and role-aware authorization checks on each request main.py:180.
+LangGraph provides explicit multi-step AI pipeline instead of one large function main.py:354.
+PostgreSQL/Neon supports persistent multi-user ticketing and relational integrity via FK NEON_SCHEMA.sql.
+Axios interceptor centralizes auth header handling api.js:26.
+Render config aligns backend+frontend build and single-service serving render.yaml.
+
+Critical Logic (Deep Dive)
+Identify the most important logic in the project
+The most critical logic is AI-driven ticket generation pipeline plus authorization boundaries around ticket access/update:
+AI pipeline in main.py:258, main.py:305, main.py:533.
+Access control in main.py:573, main.py:722, main.py:637.
+
+Explain how it works (step-by-step, with pseudo-code if needed)
+Pseudo-flow for ticket creation:
+
+Authenticate token -> extract user_id.
+Persist uploaded image to disk.
+Run workflow:
+analyze_image: call Gemini with maintenance-specific prompt.
+classify_issue: map free text to issue_type and priority using keyword sets.
+create_ticket: mark completion.
+Insert DB row with user_id + inferred fields.
+Return structured response.
+Pseudo-flow for ticket updates:
+
+Authenticate token.
+
+Load caller role from users.
+
+Load target ticket owner.
+
+If caller is not admin and not owner -> reject.
+
+Build dynamic SQL only for provided fields.
+
+If status field requested by non-admin -> reject.
+
+Execute update and return refreshed ticket.
+
+Edge Cases & Handling
+
+Identify possible failure scenarios (e.g., concurrency, invalid input, scaling issues)
+Missing/invalid token -> 401 from main.py:180.
+Invalid role/short password -> validation errors from main.py:191.
+Duplicate email signup -> 400 in main.py:405.
+Missing image file -> 400 in main.py:504.
+Gemini/API errors -> converted to text inside analysis result at main.py:258, which can still produce a ticket with fallback classification.
+Unauthorized status update/delete -> 403 in main.py:659, main.py:841.
+Ticket not found -> 404 in get/update/delete handlers main.py:624, main.py:749, main.py:850.
+DB failures -> transaction rollback via context manager main.py:95.
+Schema drift risk: runtime init_db definition differs from Neon schema constraints/indexes (main.py:119 vs NEON_SCHEMA.sql).
+Client mismatch risk: legacy static client in app.js calls unauthenticated endpoints that now require auth and expects different response shape.
+
+Explain how the system handles them
+Auth and validation failures are surfaced with explicit HTTP exceptions and status codes.
+Database operations are wrapped in transactional context to avoid partial writes on exceptions.
+File cleanup on ticket delete is attempted and non-fatal if file removal fails main.py:861.
+Role checks are performed server-side before admin-only actions; ownership checks protect patch endpoint.
+
+Potential Improvements
+Suggest how this system can be improved for production-level usage
+Enforce domain restriction server-side (currently only frontend checks in Signup.jsx:34 and Login.jsx:32).
+Replace custom SHA-256 password hashing with adaptive hashing (bcrypt/argon2) and migrate existing hashes; current implementation is in main.py:162.
+Remove runtime pip install fallback in server process and fail fast if dependencies missing (current behavior in main.py:39).
+Add request/file size limits and MIME validation for uploads before saving.
+Move long-running AI analysis to async queue/workers and return job status to improve latency and resilience.
+Unify schema management with migrations (Alembic) so app init and SQL file cannot diverge.
+Tighten CORS from wildcard to explicit origins in main.py:60.
+Add audit fields/events for status transitions and admin actions.
+Add observability: structured logs, metrics, tracing, and circuit-breaker/retry policy for Gemini API calls.
+Retire or update legacy static client paths/contract in app.js to match authenticated API.

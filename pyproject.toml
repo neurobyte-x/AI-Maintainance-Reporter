@@ -1,0 +1,23 @@
+[project]
+name = "ai-maintenance-reporter"
+version = "1.0.0"
+description = "AI Maintenance Reporter backend"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi==0.115.4",
+  "uvicorn[standard]==0.32.0",
+  "python-multipart==0.0.12",
+  "pillow==11.0.0",
+  "python-dotenv==1.0.1",
+  "google-generativeai==0.8.3",
+  "langgraph==0.2.45",
+  "langchain-core==0.3.15",
+  "pydantic[email]==2.9.2",
+  "pyjwt==2.9.0",
+  "psycopg2-binary>=2.9.9",
+  "sqlalchemy==2.0.36",
+]
+
+[tool.uv]
+managed = true
